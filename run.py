@@ -1,0 +1,10 @@
+# run.py
+
+"""
+This script runs the FastAPI application from the root directory.
+"""
+
+import uvicorn
+
+if __name__ == "__main__":
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True)

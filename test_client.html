@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prueba de API de Autenticación</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: white;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        #attemptCounter {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prueba de Autenticación Segura</h1>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="register">Registro</div>
+            <div class="tab" data-tab="login">Login</div>
+            <div class="tab" data-tab="blockTest">Prueba de Bloqueo</div>
+        </div>
+        
+        <div id="registerTab" class="tab-content active">
+            <div class="section">
+                <h2>Registro de Usuario</h2>
+                <form id="registerForm">
+                    <input type="text" id="registerUsername" placeholder="Nombre de usuario" required>
+                    <input type="password" id="registerPassword" placeholder="Contraseña" required>
+                    <button type="submit">Registrar</button>
+                </form>
+                <div id="registerResult" class="result"></div>
+            </div>
+        </div>
+        
+        <div id="loginTab" class="tab-content">
+            <div class="section">
+                <h2>Inicio de Sesión</h2>
+                <form id="loginForm">
+                    <input type="text" id="loginUsername" placeholder="Nombre de usuario" required>
+                    <input type="password" id="loginPassword" placeholder="Contraseña" required>
+                    <button type="submit">Iniciar Sesión</button>
+                </form>
+                <div id="loginResult" class="result"></div>
+            </div>
+        </div>
+        
+        <div id="blockTestTab" class="tab-content">
+            <div class="section">
+                <h2>Prueba de Bloqueo (5 intentos fallidos)</h2>
+                <p>Esta prueba realizará 6 intentos de login consecutivos con contraseña incorrecta para verificar el mecanismo de bloqueo.</p>
+                <form id="blockTestForm">
+                    <input type="text" id="blockTestUsername" placeholder="Nombre de usuario" required>
+                    <button type="submit">Iniciar Prueba de Bloqueo</button>
+                </form>
+                <div id="attemptCounter"></div>
+                <div id="blockTestResult" class="result"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Cambio de pestañas
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab + 'Tab').classList.add('active');
+            });
+        });
+        
+        // Registro de usuario
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+            const resultDiv = document.getElementById('registerResult');
+            
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ Éxito: ${data.msg}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        });
+        
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            const resultDiv = document.getElementById('loginResult');
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ Éxito: ${data.msg}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ Error: ${data.detail}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        });
+        
+        // Prueba de bloqueo
+        document.getElementById('blockTestForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('blockTestUsername').value;
+            const resultDiv = document.getElementById('blockTestResult');
+            const counterDiv = document.getElementById('attemptCounter');
+            
+            resultDiv.innerHTML = '<p>Iniciando prueba de bloqueo...</p>';
+            
+            // Realizar 6 intentos (debería bloquearse después del 5to)
+            for (let attempt = 1; attempt <= 6; attempt++) {
+                counterDiv.innerHTML = `Intento ${attempt} de 6...`;
+                
+                try {
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password: 'contraseñaIncorrecta' })
+                    });
+                    
+                    const data = await response.json();
+                    const result = document.createElement('p');
+                    
+                    if (response.status === 403 && data.detail.includes('bloqueado')) {
+                        result.classList.add('error');
+                        result.innerHTML = `Intento ${attempt}: ⛔ Usuario bloqueado: ${data.detail}`;
+                    } else {
+                        result.classList.add('error');
+                        result.innerHTML = `Intento ${attempt}: ❌ Error esperado: ${data.detail}`;
+                    }
+                    
+                    resultDiv.appendChild(result);
+                    
+                    // Pausa entre intentos
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                } catch (error) {
+                    const result = document.createElement('p');
+                    result.classList.add('error');
+                    result.innerHTML = `Intento ${attempt}: ❌ Error: ${error.message}`;
+                    resultDiv.appendChild(result);
+                }
+            }
+            
+            counterDiv.innerHTML = 'Prueba completa. Verifica si el usuario quedó bloqueado después del 5to intento.';
+        });
+    </script>
+</body>
+</html>
