@@ -347,6 +347,30 @@ async def welcome_page():
                 margin: 1rem 0;
                 display: none;
             }
+
+            .password-hash {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                color: #856404;
+                padding: 1rem;
+                border-radius: 5px;
+                margin: 1rem 0;
+                word-break: break-all;
+                font-family: 'Courier New', monospace;
+                font-size: 0.8rem;
+                max-height: 80px;
+                overflow-y: auto;
+            }
+
+            .security-warning {
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                color: #721c24;
+                padding: 0.8rem;
+                border-radius: 5px;
+                margin: 1rem 0;
+                font-size: 0.9rem;
+            }
         </style>
     </head>
     <body>
@@ -365,6 +389,13 @@ async def welcome_page():
                     <p><strong>Usuario:</strong> <span id="info-username">-</span></p>
                     <p><strong>Rol:</strong> <span id="info-role">-</span></p>
                     <p><strong>Fecha de registro:</strong> <span id="info-created">-</span></p>
+                </div>
+                
+            
+                
+                <div class="password-hash" id="password-hash">
+                    <strong>Hash bcrypt de la contraseña:</strong><br>
+                    <span id="hash-value">Cargando...</span>
                 </div>
                 
                 <div class="jwt-token" id="jwt-token">
@@ -429,6 +460,13 @@ async def welcome_page():
                     minute: '2-digit'
                 });
                 document.getElementById('info-created').textContent = createdDate;
+                
+                // Mostrar hash de contraseña bcrypt
+                if (profile.password_hash) {
+                    document.getElementById('hash-value').textContent = profile.password_hash;
+                } else {
+                    document.getElementById('hash-value').textContent = 'No disponible';
+                }
                 
                 // Mostrar token (truncado para seguridad visual)
                 const tokenDisplay = data.access_token.length > 100 

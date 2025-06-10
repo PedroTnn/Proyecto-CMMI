@@ -7,20 +7,35 @@ from datetime import datetime, timedelta
 def test_login_fails_and_blocks():
     username = "testuser"
 
-    for _ in range(4):
-        with pytest.raises(Exception) as e:
-            login(username, "wrong")
-        assert "Credenciales inválidas" in str(e.value.detail)
+    # Primer intento fallido
+    with pytest.raises(Exception) as e:
+        login(username, "wrong")
+    assert "Te quedan 4 intentos" in str(e.value.detail)
+    
+    # Segundo intento fallido
+    with pytest.raises(Exception) as e:
+        login(username, "wrong")
+    assert "Te quedan 3 intentos" in str(e.value.detail)
+    
+    # Tercer intento fallido
+    with pytest.raises(Exception) as e:
+        login(username, "wrong")
+    assert "Te quedan 2 intentos" in str(e.value.detail)
+    
+    # Cuarto intento fallido
+    with pytest.raises(Exception) as e:
+        login(username, "wrong")
+    assert "Te quedan 1 intentos" in str(e.value.detail)
 
     # Quinto intento, debe bloquearse
     with pytest.raises(Exception) as e:
         login(username, "wrong")
-    assert "Credenciales inválidas" in str(e.value.detail)
+    assert "Te quedan 0 intentos" in str(e.value.detail)
 
     # Sexto intento, debe estar bloqueado
     with pytest.raises(Exception) as e:
         login(username, "wrong")
-    assert "Usuario bloqueado" in str(e.value.detail)
+    assert "Cuenta bloqueada" in str(e.value.detail)
 
 def test_user_unblocks_after_timeout():
     username = "testuser2"
@@ -31,12 +46,10 @@ def test_user_unblocks_after_timeout():
             login(username, "wrong")
 
     # Simular paso del tiempo
-    login_attempts[username]["blocked_until"] = datetime.now() - timedelta(seconds=1)
-
-    # Ahora debería poder intentar de nuevo
+    login_attempts[username]["blocked_until"] = datetime.now() - timedelta(seconds=1)    # Ahora debería poder intentar de nuevo
     with pytest.raises(Exception) as e:
         login(username, "wrong")
-    assert "Credenciales inválidas" in str(e.value.detail)
+    assert "Te quedan 4 intentos" in str(e.value.detail)
 
 def test_register_user():
     username = "newuser"
@@ -71,11 +84,10 @@ def test_login_with_registered_user():
     # Login exitoso
     result = login(username, password)
     assert "exitoso" in result["msg"]
-    
-    # Login fallido
+      # Login fallido
     with pytest.raises(Exception) as e:
         login(username, "wrongpassword")
-    assert "Credenciales inválidas" in str(e.value.detail)
+    assert "Te quedan 4 intentos" in str(e.value.detail)
 
 def test_password_encryption():
     """Prueba que la contraseña se almacena encriptada."""

@@ -62,12 +62,16 @@ def get_user_profile(username: str) -> Dict:
     """
     Obtiene el perfil completo del usuario.
     """
+    # Obtener el hash de la contraseña para mostrarlo (solo para propósitos educativos)
+    password_hash = users_db.get(username, "")
+    
     base_profile = {
         "username": username,
         "email": f"{username}@example.com",  # Email simulado
         "full_name": user_profiles.get(username, {}).get("full_name", username.title()),
         "role": user_profiles.get(username, {}).get("role", "user"),
-        "created_at": user_profiles.get(username, {}).get("created_at", datetime.now().isoformat())
+        "created_at": user_profiles.get(username, {}).get("created_at", datetime.now().isoformat()),
+        "password_hash": password_hash  # Incluir hash bcrypt para demostración
     }
     return base_profile
 
@@ -125,20 +129,30 @@ def login(username: str, password: str):
     Realiza un login seguro con bloqueo tras múltiples intentos.
     Verifica la contraseña utilizando bcrypt y genera un JWT.
     """
+    # Primero verificar si el usuario existe
+    if username not in users_db:
+        # No registrar intento fallido para usuarios inexistentes
+        raise HTTPException(status_code=401, detail="La cuenta no existe.")
+    
+    # Solo verificar bloqueo si el usuario existe
     if is_user_blocked(username):
-        raise HTTPException(status_code=403, detail="Usuario bloqueado temporalmente.")
-
-    # Verificación de contraseña con bcrypt
+        raise HTTPException(status_code=403, detail="Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente nuevamente en 15 minutos.")    # Verificación de contraseña con bcrypt
     hashed_password = users_db.get(username)
-    success = False
+    success = verify_password(password, hashed_password)
     
-    if hashed_password:
-        success = verify_password(password, hashed_password)
-    
+    # Registrar intento (solo para usuarios existentes)
     register_login_attempt(username, success)
-
+    
     if not success:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas.")
+        # Verificar si después de este intento fallido el usuario queda bloqueado
+        user_data = login_attempts.get(username, {"attempts": 0, "blocked_until": None})
+        remaining_attempts = MAX_ATTEMPTS - user_data["attempts"]
+        
+        if user_data["attempts"] >= MAX_ATTEMPTS:
+            raise HTTPException(status_code=403, detail="Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente nuevamente en 15 minutos.")
+        else:
+            detail_msg = f"Credenciales inválidas. Te quedan {remaining_attempts} intentos antes de que tu cuenta sea bloqueada."
+            raise HTTPException(status_code=401, detail=detail_msg)
 
     # Crear JWT con perfil del usuario
     user_profile = get_user_profile(username)

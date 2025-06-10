@@ -127,11 +127,35 @@
             margin: 1rem 0;
             display: none;
         }
+        
+        .password-hash {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .security-warning {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 0.8rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
     <div class="welcome-container">
-        <div class="loading" id="loading">Cargando información del usuario...</div>
+        <div class="loading" id="loading">Verificando sesión y cargando información...</div>
         
         <div id="welcome-content" style="display: none;">
             <h1 class="welcome-header">¡Bienvenido!</h1>
@@ -145,6 +169,13 @@
                 <p><strong>Usuario:</strong> <span id="info-username">-</span></p>
                 <p><strong>Rol:</strong> <span id="info-role">-</span></p>
                 <p><strong>Fecha de registro:</strong> <span id="info-created">-</span></p>
+            </div>
+            
+         
+            
+            <div class="password-hash" id="password-hash">
+                <strong>Hash bcrypt de la contraseña:</strong><br>
+                <span id="hash-value">Cargando...</span>
             </div>
             
             <div class="jwt-token" id="jwt-token">
@@ -164,7 +195,62 @@
         </div>
     </div>
 
-    <script>        // Obtener datos del usuario desde localStorage o URL params
+    <script>
+        // Verificar sesión activa antes de mostrar datos
+        async function validateAndGetUserData() {
+            console.log('Validando sesión y obteniendo datos de usuario'); // Debug
+            
+            const userData = localStorage.getItem('userData');
+            const token = localStorage.getItem('access_token');
+            
+            if (!userData || !token) {
+                console.log('No hay datos de sesión en localStorage'); // Debug
+                return null;
+            }
+            
+            try {
+                // Validar token con el servidor
+                const response = await fetch('/validate-session', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log('Sesión válida'); // Debug
+                    const parsedUserData = JSON.parse(userData);
+                    return {
+                        user_profile: parsedUserData,
+                        access_token: token
+                    };
+                } else {
+                    console.log('Sesión inválida:', response.status); // Debug
+                    // Limpiar datos inválidos
+                    localStorage.removeItem('userData');
+                    localStorage.removeItem('access_token');
+                    return null;
+                }
+            } catch (error) {
+                console.error('Error validando sesión:', error); // Debug
+                localStorage.removeItem('userData');
+                localStorage.removeItem('access_token');
+                return null;
+            }
+        }
+        
+        function showError() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error-message').style.display = 'block';
+            
+            // Redirigir automáticamente después de 3 segundos
+            setTimeout(() => {
+                window.location.href = '/static/index.html?error=session_expired';
+            }, 3000);
+        }
+        
+        // Obtener datos del usuario desde localStorage o URL params
         function getUserData() {
             console.log('Obteniendo datos de usuario desde localStorage'); // Debug
             
@@ -211,6 +297,13 @@
             });
             document.getElementById('info-created').textContent = createdDate;
             
+            // Mostrar hash de contraseña bcrypt
+            if (profile.password_hash) {
+                document.getElementById('hash-value').textContent = profile.password_hash;
+            } else {
+                document.getElementById('hash-value').textContent = 'No disponible';
+            }
+            
             // Mostrar token (truncado para seguridad visual)
             const tokenDisplay = data.access_token.length > 100 
                 ? data.access_token.substring(0, 100) + '...' 
@@ -253,20 +346,19 @@
             // Redireccionar al login
             window.location.href = '/static/index.html';
         }
-          // Inicializar página
+          // Inicializar página con validación de sesión
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('Página de bienvenida cargada'); // Debug
+            console.log('Página de bienvenida estática cargada'); // Debug
             
-            const userData = getUserData();
-            console.log('Datos de usuario obtenidos:', userData); // Debug
-            
-            if (userData) {
-                console.log('Mostrando información del usuario'); // Debug
-                displayUserInfo(userData);
-            } else {
-                console.log('No se encontraron datos de usuario, mostrando error'); // Debug
-                showError();
-            }
+            validateAndGetUserData().then(userData => {
+                if (userData) {
+                    console.log('Mostrando información del usuario'); // Debug
+                    displayUserInfo(userData);
+                } else {
+                    console.log('No se encontraron datos válidos de usuario'); // Debug
+                    showError();
+                }
+            });
         });
         
         // Verificar periódicamente que el usuario sigue autenticado

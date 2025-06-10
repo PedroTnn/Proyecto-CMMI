@@ -107,11 +107,47 @@
             margin-top: 0;
             color: #555;
         }
+        .blocked-message {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        
+        .attempts-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .session-expired {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Sistema de Autenticación Segura</h1>          <div id="registerForm" class="form-container">
+        <h1>Sistema de Autenticación Segura</h1>
+        
+        <!-- Mensaje de sesión expirada -->
+        <div id="sessionExpiredMessage" class="session-expired hidden">
+            ⏰ Tu sesión ha expirado. Por favor, inicia sesión nuevamente.
+        </div>
+        
+        <div id="registerForm" class="form-container">
             <h2>Crear una cuenta</h2>
             <div class="form-group">
                 <label for="regUsername">Nombre de usuario</label>
@@ -160,30 +196,87 @@
         const registerMessage = document.getElementById('registerMessage');
         const loginMessage = document.getElementById('loginMessage');
         const attemptsCounter = document.getElementById('attemptsCounter');
-          // Contadores
-        let loginAttempts = 0;        // Verificar si el usuario ya está logueado
-        function checkExistingLogin() {
+        
+        // Contadores por usuario
+        let userAttempts = {};
+        
+        // Verificar si el usuario ya está logueado
+        async function checkExistingLogin() {
             const token = localStorage.getItem('access_token');
             const userData = localStorage.getItem('userData');
             
             if (token && userData) {
-                // Usuario ya está logueado, redirigir a welcome
-                window.location.href = '/welcome';
+                try {
+                    // Validar token con el servidor
+                    const response = await fetch('/validate-session', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Usuario ya está logueado con sesión válida, redirigir a welcome
+                        console.log('Usuario ya tiene sesión válida'); // Debug
+                        window.location.href = '/welcome';
+                    } else {
+                        // Token inválido, limpiar localStorage
+                        console.log('Token inválido, limpiando datos'); // Debug
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('userData');
+                    }
+                } catch (error) {
+                    console.error('Error validando sesión existente:', error); // Debug
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('userData');
+                }
             }
         }
         
-        // Verificar login existente al cargar la página
-        checkExistingLogin();
+        // Verificar parámetros de URL para mensajes
+        function checkUrlParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            
+            if (error === 'session_expired') {
+                document.getElementById('sessionExpiredMessage').classList.remove('hidden');
+                // Limpiar URL sin recargar página
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        }
+          // Verificar login existente y parámetros al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            checkUrlParams();
+            checkExistingLogin();
+            
+            // Limpiar mensajes cuando el usuario empiece a escribir
+            document.getElementById('loginUsername').addEventListener('input', clearMessages);
+            document.getElementById('loginPassword').addEventListener('input', clearMessages);
+            document.getElementById('regUsername').addEventListener('input', clearMessages);
+            document.getElementById('regPassword').addEventListener('input', clearMessages);
+        });
+          // Función para limpiar todos los mensajes
+        function clearMessages() {
+            loginMessage.classList.add('hidden');
+            registerMessage.classList.add('hidden');
+            attemptsCounter.classList.add('hidden');
+            loginMessage.textContent = '';
+            registerMessage.textContent = '';
+            attemptsCounter.innerHTML = '';
+        }
         
         // Alternar entre formularios
         showLoginForm.addEventListener('click', () => {
             registerForm.classList.add('hidden');
             loginForm.classList.remove('hidden');
+            clearMessages(); // Limpiar mensajes al cambiar a login
         });
         
         showRegisterForm.addEventListener('click', () => {
             loginForm.classList.add('hidden');
             registerForm.classList.remove('hidden');
+            clearMessages(); // Limpiar mensajes al cambiar a registro
         });
         
         // Función para mostrar mensajes
@@ -195,6 +288,10 @@
         registerButton.addEventListener('click', async () => {
             const username = document.getElementById('regUsername').value;
             const password = document.getElementById('regPassword').value;
+            
+            // Limpiar mensajes anteriores al inicio de cada intento
+            registerMessage.classList.add('hidden');
+            registerMessage.textContent = '';
             
             if (!username || !password) {
                 showMessage(registerMessage, "Por favor completa todos los campos requeridos", false);
@@ -227,10 +324,16 @@
             } catch (error) {
                 showMessage(registerMessage, `Error de conexión: ${error.message}`, false);
             }
-        });// Inicio de sesión
+        });        // Inicio de sesión
         loginButton.addEventListener('click', async () => {
             const username = document.getElementById('loginUsername').value;
             const password = document.getElementById('loginPassword').value;
+            
+            // Limpiar mensajes anteriores al inicio de cada intento
+            loginMessage.classList.add('hidden');
+            attemptsCounter.classList.add('hidden');
+            loginMessage.textContent = '';
+            attemptsCounter.innerHTML = '';
             
             if (!username || !password) {
                 showMessage(loginMessage, "Por favor completa todos los campos", false);
@@ -250,8 +353,8 @@
                 console.log('Respuesta del servidor:', data); // Debug
                 
                 if (response.ok) {
-                    // Reiniciar contador de intentos
-                    loginAttempts = 0;
+                    // Reiniciar contador de intentos para este usuario
+                    userAttempts[username] = 0;
                     attemptsCounter.classList.add('hidden');
                     
                     console.log('Login exitoso, datos recibidos:', data); // Debug
@@ -269,8 +372,8 @@
                     localStorage.setItem('userData', JSON.stringify(data.user_profile));
                     
                     console.log('Datos guardados en localStorage'); // Debug
-                    console.log('Token:', localStorage.getItem('access_token')); // Debug
-                    console.log('UserData:', localStorage.getItem('userData')); // Debug                    // Redireccionar a la página de bienvenida después de un breve delay
+                    
+                    // Redireccionar a la página de bienvenida después de un breve delay
                     setTimeout(() => {
                         console.log('Redirigiendo a /welcome'); // Debug
                         window.location.href = '/welcome';
@@ -279,18 +382,38 @@
                 } else {
                     console.log('Error en login:', response.status, data); // Debug
                     
-                    // Si es un error de credenciales inválidas, incrementar contador
+                    // Manejar diferentes tipos de errores
                     if (response.status === 401) {
-                        loginAttempts++;
-                        attemptsCounter.textContent = `Intento fallido ${loginAttempts} de 5`;
+                        if (data.detail.includes("no existe")) {
+                            // Usuario no existe
+                            showMessage(loginMessage, data.detail, false);
+                            attemptsCounter.classList.add('hidden');
+                            userAttempts[username] = 0; // Resetear contador para usuario inexistente
+                        } else if (data.detail.includes("quedan")) {
+                            // Contraseña incorrecta con información de intentos restantes
+                            userAttempts[username] = (userAttempts[username] || 0) + 1;
+                            showMessage(loginMessage, data.detail, false);
+                      
+                            attemptsCounter.classList.remove('hidden');
+                        } else {
+                            // Otros errores 401
+                            showMessage(loginMessage, data.detail, false);
+                        }
+                    } else if (response.status === 403) {
+                        // Cuenta bloqueada
+                        showMessage(loginMessage, "", false);
+                        attemptsCounter.innerHTML = `<div class="blocked-message">🔒 ${data.detail}</div>`;
                         attemptsCounter.classList.remove('hidden');
-                    }
-                    
-                    // Si está bloqueado, mostrar mensaje especial
-                    if (response.status === 403 && data.detail.includes('bloqueado')) {
-                        showMessage(loginMessage, "Tu cuenta ha sido bloqueada temporalmente por seguridad. Por favor, intenta nuevamente en 15 minutos.", false);
-                        attemptsCounter.textContent = "Cuenta bloqueada";
+                        
+                        // Deshabilitar el botón de login temporalmente
+                        loginButton.disabled = true;
+                        loginButton.textContent = "Cuenta Bloqueada";
+                        setTimeout(() => {
+                            loginButton.disabled = false;
+                            loginButton.textContent = "Iniciar sesión";
+                        }, 10000); // Rehabilitar después de 10 segundos para permitir nuevos intentos
                     } else {
+                        // Otros errores
                         showMessage(loginMessage, `Error: ${data.detail}`, false);
                     }
                 }
